@@ -1,0 +1,101 @@
+### Requiere la extensión "REST Client" (humao.rest-client) — ya viene
+### instalada en el devcontainer. Ejecuta cada bloque con el botón
+### "Send Request" que aparece encima de cada @nombre / ###.
+### Antes de correr esto: en una terminal del Codespace, npm run dev
+
+@events  = http://localhost:3001
+@rooms   = http://localhost:3002
+@kitchen = http://localhost:3003
+@folio   = http://localhost:3004
+@opera   = http://localhost:3005
+
+### =====================================================
+### Escenario 1: evento que sí cabe (camino feliz)
+### =====================================================
+
+### 1. Cotizar un evento (borrador de BEO)
+# @name crearEvento
+POST {{events}}/eventos
+Content-Type: application/json
+
+{
+  "nombre": "Boda Andrade-Salazar",
+  "salon": "Salón Botánica",
+  "fechaInicio": "2026-11-14T18:00:00-05:00",
+  "fechaFin": "2026-11-15T01:00:00-05:00",
+  "habitaciones": 40,
+  "cubiertos": 180,
+  "menu": "Menú de 3 tiempos, opción vegetariana"
+}
+
+### 2. Confirmar el evento -> dispara EventoConfirmado
+### Copia el "id" de la respuesta del paso 1 y reemplaza EVENTO_ID abajo
+### (en este archivo, y en los pasos 3 y 6-7).
+POST {{events}}/eventos/EVENTO_ID/confirmar
+
+### 3. Ver el bloque de habitaciones que creó room-block-service
+GET {{rooms}}/bloques
+
+### 4. Ver disponibilidad restante (257 habitaciones totales, como el JW Marriott Quito)
+GET {{rooms}}/disponibilidad?dias=5
+
+### 5. Ver la comanda de cocina que creó kitchen-service en paralelo
+GET {{kitchen}}/comandas
+
+### 6. Simular un cargo de F&B llegando desde el POS (Simphony) vía el adaptador OPERA
+POST {{opera}}/simulate/cargo
+Content-Type: application/json
+
+{
+  "eventoId": "EVENTO_ID",
+  "concepto": "Servicio de banquete - Salón Botánica",
+  "monto": 8400.00,
+  "origen": "Simphony POS (simulado)"
+}
+
+### 7. Ver el folio consolidado del evento (bloque + cargo, ya sumado)
+GET {{folio}}/folios/EVENTO_ID
+
+### =====================================================
+### Escenario 2: evento que NO cabe (saga con compensación)
+### =====================================================
+
+### 8. Crear un evento pidiendo más habitaciones de las que existen
+POST {{events}}/eventos
+Content-Type: application/json
+
+{
+  "nombre": "Congreso Internacional de Seguridad IA",
+  "salon": "Gran Salón",
+  "fechaInicio": "2026-11-14T08:00:00-05:00",
+  "fechaFin": "2026-11-16T18:00:00-05:00",
+  "habitaciones": 999,
+  "cubiertos": 400,
+  "menu": "Coffee break + almuerzo"
+}
+
+### 9. Confirmarlo -> room-block-service lo rechaza (BloqueRechazado)
+### y events-service reacciona marcándolo EN_RIESGO (EventoEnRiesgo).
+### Reemplaza EVENTO_ID_2 con el id de la respuesta del paso 8.
+POST {{events}}/eventos/EVENTO_ID_2/confirmar
+
+### 10. Comprobar que el evento quedó EN_RIESGO, no CONFIRMADO sin respaldo
+GET {{events}}/eventos/EVENTO_ID_2
+
+### =====================================================
+### Otros
+### =====================================================
+
+### Listar todos los eventos
+GET {{events}}/eventos
+
+### Simular una reserva individual llegando desde OPERA/OHIP
+POST {{opera}}/simulate/reserva
+Content-Type: application/json
+
+{
+  "huesped": "Roberto Andrade",
+  "checkIn": "2026-11-14",
+  "checkOut": "2026-11-16",
+  "habitaciones": 1
+}

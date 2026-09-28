@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tablero EDA — Hotel</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #16213a;
+    --panel-2: #1c2947;
+    --border: #2a3a60;
+    --text: #e6ebf5;
+    --muted: #8ea0c4;
+    --accent: #5b8def;
+    --ok: #38c793;
+    --warn: #f2b84b;
+    --bad: #ef5a6f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { color: var(--muted); font-size: 13px; }
+  .layout {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 16px;
+    padding: 16px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .panel h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .eventos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .evento-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .evento-card h3 { margin: 0 0 6px; font-size: 15px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  .badge.COTIZADO { background: #33415f; color: #b9c6e6; }
+  .badge.CONFIRMADO { background: #10352a; color: var(--ok); }
+  .badge.EN_RIESGO { background: #3a2410; color: var(--warn); }
+  .badge.DESCONOCIDO { background: #33415f; color: var(--muted); }
+  .fila { font-size: 13px; color: var(--muted); margin: 3px 0; display: flex; justify-content: space-between; gap: 8px; }
+  .fila b { color: var(--text); font-weight: 500; }
+  .pill { font-size: 11px; padding: 1px 6px; border-radius: 6px; }
+  .pill.CREADO, .pill.PLANIFICADA { background: #10352a; color: var(--ok); }
+  .pill.RECHAZADO { background: #3a1620; color: var(--bad); }
+  .vacio { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+  .bitacora { max-height: 78vh; overflow-y: auto; }
+  .bitacora-item {
+    border-left: 2px solid var(--accent);
+    padding: 6px 0 6px 10px;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+  }
+  .bitacora-item .tipo { color: var(--text); font-weight: 600; }
+  .bitacora-item .meta { color: var(--muted); font-size: 11px; }
+  .bitacora-item pre {
+    margin: 4px 0 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .estado-conexion { font-size: 12px; }
+  .estado-conexion.on { color: var(--ok); }
+  .estado-conexion.off { color: var(--bad); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Tablero EDA — Eventos y Banquetes</h1>
+    <span>Proyección en vivo del bus de eventos (no es la fuente de verdad, es solo una vista)</span>
+    <span id="conexion" class="estado-conexion off" style="margin-left:auto;">conectando…</span>
+  </header>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Eventos</h2>
+      <div id="eventos" class="eventos-grid">
+        <div class="vacio">Todavía no hay eventos. Usa requests.http o curl contra events-service (puerto 3001) para crear uno.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Bitácora de eventos en vivo</h2>
+      <div id="bitacora" class="bitacora"></div>
+    </div>
+  </div>
+
+<script>
+  const elEventos = document.getElementById('eventos');
+  const elBitacora = document.getElementById('bitacora');
+  const elConexion = document.getElementById('conexion');
+
+  function fmtFecha(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleString('es-EC', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  function fmtMoneda(n) {
+    if (n == null) return '—';
+    return '$' + Number(n).toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function renderEventos(eventos) {
+    if (!eventos.length) {
+      elEventos.innerHTML = '<div class="vacio">Todavía no hay eventos. Usa requests.http o curl contra events-service (puerto 3001) para crear uno.</div>';
+      return;
+    }
+    const ordenados = [...eventos].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+    elEventos.innerHTML = ordenados.map((ev) => `
+      <div class="evento-card">
+        <span class="badge ${ev.estado}">${ev.estado}</span>
+        <h3>${ev.nombre || '(sin nombre todavía)'}</h3>
+        <div class="fila"><span>Salón</span><b>${ev.salon || '—'}</b></div>
+        <div class="fila"><span>Fecha</span><b>${fmtFecha(ev.fechaInicio)}</b></div>
+        <div class="fila"><span>Bloque de habitaciones</span>
+          <b>${
+            ev.bloque
+              ? ev.bloque.estado === 'RECHAZADO'
+                ? `<span class="pill RECHAZADO">rechazado</span>`
+                : `<span class="pill CREADO">${ev.bloque.habitaciones} hab.</span>`
+              : '—'
+          }</b>
+        </div>
+        <div class="fila"><span>Comanda de cocina</span>
+          <b>${ev.comanda ? `<span class="pill PLANIFICADA">${ev.comanda.cubiertos} cubiertos</span>` : '—'}</b>
+        </div>
+        <div class="fila"><span>Folio</span><b>${ev.folio ? fmtMoneda(ev.folio.total) : '—'}</b></div>
+      </div>
+    `).join('');
+  }
+
+  function renderBitacora(bitacora) {
+    elBitacora.innerHTML = bitacora.map((item) => `
+      <div class="bitacora-item">
+        <div class="tipo">${item.tipo}</div>
+        <div class="meta">${fmtFecha(item.time)} · evento ${String(item.aggregateId).slice(0, 8)}…</div>
+        <pre>${JSON.stringify(item.data, null, 0)}</pre>
+      </div>
+    `).join('');
+  }
+
+  async function cargarEstadoInicial() {
+    const res = await fetch('/api/estado');
+    const { eventos, bitacora } = await res.json();
+    renderEventos(eventos);
+    renderBitacora(bitacora);
+  }
+
+  function conectarSSE() {
+    const es = new EventSource('/api/stream');
+    es.onopen = () => { elConexion.textContent = 'en vivo'; elConexion.className = 'estado-conexion on'; };
+    es.onerror = () => { elConexion.textContent = 'reconectando…'; elConexion.className = 'estado-conexion off'; };
+    es.onmessage = (msg) => {
+      const { eventos } = JSON.parse(msg.data);
+      renderEventos(eventos);
+      cargarBitacoraParcial();
+    };
+  }
+
+  async function cargarBitacoraParcial() {
+    const res = await fetch('/api/estado');
+    const { bitacora } = await res.json();
+    renderBitacora(bitacora);
+  }
+
+  cargarEstadoInicial();
+  conectarSSE();
+</script>
+</body>
+</html>

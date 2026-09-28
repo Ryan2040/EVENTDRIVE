@@ -1,0 +1,24 @@
+{
+  "name": "Hotel EDA Prototype",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [3000, 3001, 3002, 3003, 3004, 3005, 15672],
+  "portsAttributes": {
+    "3000": { "label": "Tablero en vivo", "onAutoForward": "openPreview" },
+    "3001": { "label": "events-service (banquetes/BEO)" },
+    "3002": { "label": "room-block-service (bloques de habitaciones)" },
+    "3003": { "label": "kitchen-service (comandas de cocina)" },
+    "3004": { "label": "folio-service (folio y cargos)" },
+    "3005": { "label": "opera-adapter (simulador PMS/OHIP)" },
+    "15672": { "label": "RabbitMQ Management (guest/guest)" }
+  },
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": ["humao.rest-client", "esbenp.prettier-vscode"]
+    }
+  },
+  "remoteUser": "node"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "hotel-eda-prototype",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Prototipo de arquitectura orientada a eventos para el área de eventos y banquetes de un hotel (basado en JW Marriott Quito)",
+  "workspaces": [
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n OPERA,EVENTOS,BLOQUES,COCINA,FOLIO,TABLERO -c \"blue,green,yellow,magenta,cyan,white\" \"npm run start -w opera-adapter\" \"npm run start -w events-service\" \"npm run start -w room-block-service\" \"npm run start -w kitchen-service\" \"npm run start -w folio-service\" \"npm run start -w dashboard\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

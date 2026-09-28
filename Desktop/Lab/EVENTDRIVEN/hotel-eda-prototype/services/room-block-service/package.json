@@ -1,0 +1,12 @@
+{
+  "name": "room-block-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "@hotel/common": "*",
+    "express": "^4.19.2"
+  }
+}
